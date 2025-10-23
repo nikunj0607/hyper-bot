@@ -71,7 +71,7 @@ def safe_get(url: str, params: Dict[str, Any] = None, timeout: int = 20):
     return r
 
 # ======= Data fetch (Delta Exchange) =======
-BASE = "https://api.delta.exchange"
+BASE = "https://api.india.delta.exchange"
 def fetch_candles(symbol: str, resolution: str, days: int) -> List[Dict[str, Any]]:
     """
     Returns list of dict: {time, open, high, low, close, volume}
