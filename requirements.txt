@@ -1,7 +1,5 @@
 Flask==3.0.3
 requests==2.31.0
-pandas==1.5.3
-numpy==1.24.3
-gunicorn==21.2.0
-setuptools==68.0.0
-wheel
+pandas==2.2.2
+numpy==1.26.4
+python-telegram-bot==13.15
