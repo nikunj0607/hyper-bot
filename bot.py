@@ -1,170 +1,132 @@
-import time, datetime, requests, pytz, os, threading
-from flask import Flask
+# ==============================
+# HYPER MODE BOT WITH WEBHOOK
+# ==============================
+import requests, time, datetime, threading
+from flask import Flask, request
+import numpy as np
+import pandas as pd
 
-# ==============================
-# ENVIRONMENT SECRETS (Render)
-# ==============================
-TG_TOKEN = os.environ.get("TG_TOKEN")
-CHAT_ID  = int(os.environ.get("CHAT_ID"))
+# ====== Load Secrets (Do NOT upload to GitHub) ======
+from secrets import TG_TOKEN, CHAT_ID
 
+app = Flask(__name__)
 
-# ==============================
-# BOT SETTINGS
-# ==============================
-ASSETS       = ["ETHUSDT", "BTCUSDT", "SOLUSDT", "BNBUSDT"]
-TF           = "1h"
-API          = "https://api.delta.exchange"
-LOOP_SLEEP   = 20      # seconds between ticks
-IN_POSITION  = {a: False for a in ASSETS}   # position tracker
-run_trading  = True     # pause/resume flag
-
-
-# ==============================
-# TELEGRAM SEND
-# ==============================
+# ====== TELEGRAM SEND ======
 def tg(msg):
-    url = f"https://api.telegram.org/bot{TG_TOKEN}/sendMessage"
-    params = {"chat_id": CHAT_ID, "text": msg}
     try:
-        requests.get(url, params=params)
+        url = f"https://api.telegram.org/bot{TG_TOKEN}/sendMessage"
+        data = {"chat_id": CHAT_ID, "text": msg}
+        requests.post(url, data=data)
     except:
         pass
 
-
-# ==============================
-# TELEGRAM RECEIVE
-# ==============================
-last_update_id = None
-def listen():
-    global last_update_id
-    url = f"https://api.telegram.org/bot{TG_TOKEN}/getUpdates"
-    try:
-        r = requests.get(url).json()
-    except:
-        return None
-
-    updates = r.get("result", [])
-    if not updates: return None
-
-    upd = updates[-1]
-    uid = upd["update_id"]
-
-    if last_update_id is None:
-        last_update_id = uid
-        return None
-
-    if uid == last_update_id:
-        return None
-
-    last_update_id = uid
-    text = upd["message"]["text"].lower()
-    cid  = upd["message"]["chat"]["id"]
-
-    if cid != CHAT_ID:    # block strangers
-        return None
-
-    return text
-
-
-# ==============================
-# GET LATEST CANDLES
-# ==============================
-def candle(asset):
-    url = f"{API}/v2/history/candles"
-    p = {
-        "symbol":     asset,
-        "resolution": TF,
-        "start":      int(time.time()) - 100000,
-        "end":        int(time.time())
+# ========== DATA FETCH ==========
+def get_ohlc(symbol):
+    url = "https://api.delta.exchange/v2/history/candles"
+    now = int(datetime.datetime.now().timestamp())
+    params = {
+        "symbol": symbol,
+        "resolution":"1h",
+        "start": now - 60*24*3600,
+        "end": now
     }
-    r = requests.get(url, params=p).json()
-    if "result" not in r: return None
-    d = r["result"]
-    if len(d) < 3: return None
-    return d[-3], d[-2]    # c2 closed, c1 break candle
+    r = requests.get(url, params=params)
+    df = pd.DataFrame(r.json()["result"], columns=["time","open","high","low","close","volume"])
+    df["time"] = pd.to_datetime(df["time"], unit="s")
+    return df
 
+# ====== STRATEGY ======
+def candle_break(df):
+    signals = []
+    for i in range(1,len(df)):
+        last = df.iloc[i-1]
+        cur  = df.iloc[i]
 
-# ==============================
-# HYPER-MODE ENTRY LOGIC
-# ==============================
-def check_entry(asset):
-    data = candle(asset)
-    if not data: return None
+        if cur.close > last.high:
+            signals.append("BUY")
+        elif cur.close < last.low:
+            signals.append("SELL")
+        else:
+            signals.append(None)
 
-    c2, c1 = data
+    return signals
 
-    # BUY
-    if c2["close"] > c2["open"] and c1["high"] > c2["high"]:
-        return "BUY"
+# ====== GLOBAL ======
+portfolio = 10000
+IN_POSITION = False
+POSITION_SIDE = None
 
-    # SELL
-    if c2["close"] < c2["open"] and c1["low"] < c2["low"]:
-        return "SELL"
+last_signal = None
 
-    return None
+run_trading = True
 
-
-# ==============================
-# MAIN LOOP
-# ==============================
-def loop():
-    global run_trading
+# ===== HYPER LOOP =====
+def hyper_loop():
+    global portfolio, IN_POSITION, POSITION_SIDE, last_signal
 
     while True:
-
-        # ---- Telegram commands ----
-        cmd = listen()
-        if cmd:
-            if cmd == "ping":
-                tg("✅ Bot alive!")
-            elif cmd == "pause":
-                run_trading = False
-                tg("⏸ Trading paused")
-            elif cmd == "resume":
-                run_trading = True
-                tg("▶ Trading resumed")
-            elif cmd == "status":
-                tg(f"Positions: {IN_POSITION}")
-            elif cmd == "help":
-                tg("/ping /pause /resume /status")
-            else:
-                tg("❓ Unknown command")
-
-        # ---- paused? ----
-        if not run_trading:
-            time.sleep(LOOP_SLEEP)
+        if run_trading == False:
+            tg("⏸ paused")
+            time.sleep(60)
             continue
 
-        # ---- asset loop ----
-        for a in ASSETS:
-            sig = check_entry(a)
-            if not sig: continue
+        df = get_ohlc("ETHUSDT")
+        signals = candle_break(df)
+        sig = signals[-1]
 
-            if (sig == "BUY") and (not IN_POSITION[a]):
-                IN_POSITION[a] = True
-                tg(f"🟢 BUY {a}")
+        # BUY
+        if sig == "BUY" and POSITION_SIDE != "LONG":
+            POSITION_SIDE = "LONG"
+            IN_POSITION = True
+            tg(f"🟢 LONG entry ({df.close.iloc[-1]:.2f})")
 
-            if (sig == "SELL") and (IN_POSITION[a]):
-                IN_POSITION[a] = False
-                tg(f"🔴 SELL {a}")
+        # SELL
+        elif sig == "SELL" and POSITION_SIDE != "SHORT":
+            POSITION_SIDE = "SHORT"
+            IN_POSITION = True
+            tg(f"🔴 SHORT entry ({df.close.iloc[-1]:.2f})")
 
-        print(f"[{datetime.datetime.utcnow().isoformat()}] heartbeat")
-        time.sleep(LOOP_SLEEP)
+        # Print heartbeat to Render logs
+        print(f"[{datetime.datetime.utcnow().isoformat()}] Hyper cycle… pos={POSITION_SIDE}")
 
+        time.sleep(3600)  # 1h candles
+
+# Run strategy thread
+threading.Thread(target=hyper_loop, daemon=True).start()
 
 # ==============================
-# FLASK SERVER (Render Health)
+# WEBHOOK ENDPOINT
 # ==============================
-app = Flask(__name__)
+@app.route(f"/{TG_TOKEN}", methods=["POST"])
+def webhook():
+    global run_trading
+    data = request.get_json()
 
-@app.route("/")
+    if "message" in data:
+        text = data["message"]["text"].lower()
+        cid  = data["message"]["chat"]["id"]
+        if cid != CHAT_ID:
+            return "ignored"
+
+        if text == "ping":
+            tg("✅ alive")
+        elif text == "pause":
+            run_trading = False
+            tg("⏸ paused")
+        elif text == "resume":
+            run_trading = True
+            tg("▶ resumed")
+        elif text == "status":
+            tg(f"pos={POSITION_SIDE}")
+        else:
+            tg("❓ unknown")
+
+    return "ok"
+
+@app.route("/", methods=["GET"])
 def home():
     return "hyper alive"
 
-
-# ==============================
-# BACKGROUND THREAD START
-# ==============================
-t = threading.Thread(target=loop)
-t.daemon = True
-t.start()
+# ====== GUNICORN ENTRYPOINT ======
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=10000)
