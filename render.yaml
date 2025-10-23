@@ -1,9 +1,0 @@
-services:
-  - type: web
-    name: hyper-bot
-    env: python
-    buildCommand: |
-      pip install -r requirements.txt
-      chmod +x start.sh
-    startCommand: ./start.sh
-    autoDeploy: true
