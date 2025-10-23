@@ -1,6 +1,5 @@
-flask
-gunicorn
-requests
-pandas
-numpy
-websocket-client
+Flask==3.0.0
+requests==2.31.0
+pandas==2.0.3
+numpy==1.24.4
+gunicorn==21.2.0
