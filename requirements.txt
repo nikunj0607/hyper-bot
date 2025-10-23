@@ -1,8 +1,7 @@
-Flask==3.0.0
+Flask==3.0.3
 requests==2.31.0
-pandas==2.0.3
-numpy==1.24.4
+pandas==2.2.2
+numpy==2.1.1
 gunicorn==21.2.0
-setuptools==68.0.0
+setuptools==75.1.0
 wheel
---only-binary=numpy,pandas
