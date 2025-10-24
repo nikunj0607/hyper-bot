@@ -43,10 +43,52 @@ except Exception:
 # ======= Flask app =======
 app = Flask(__name__)
 
-@app.route("/")
-def root():
-    return "hyper-bot ok"
+@app.route("/ui")
+def ui():
+    st = bot_status()
+    rows = ""
+    for pos in st["open_positions"]:
+        rows += f"<tr><td>{pos['symbol']}</td><td>{pos['side']}</td><td>{pos['entry']:.4f}</td><td>{pos['stop']:.4f}</td><td>{pos['qty']:.4f}</td></tr>"
 
+    html = f"""
+    <html>
+    <head>
+    <meta http-equiv="refresh" content="5">
+    <style>
+      body {{
+        background: #111;
+        color: #0f0;
+        font-family: Arial;
+      }}
+      td, th {{
+        padding: 8px;
+        border: 1px solid #444;
+      }}
+      table {{
+        border-collapse: collapse;
+      }}
+      h2 {{
+        color: #0f0;
+      }}
+    </style>
+    </head>
+    <body>
+      <h2>🚀 Hyper Bot Live Dashboard</h2>
+      <p><b>Equity:</b> {st['equity']}</p>
+      <p><b>Drawdown:</b> {st['dd%']}%</p>
+      <p><b>Open Positions:</b> {len(st['open_positions'])}</p>
+
+      <h3>Open Positions</h3>
+      <table>
+        <tr><th>Symbol</th><th>Side</th><th>Entry</th><th>Stop</th><th>Qty</th></tr>
+        {rows}
+      </table>
+
+      <p>Updated: {now_utc()}</p>
+    </body>
+    </html>
+    """
+    return html
 @app.route("/status")
 def status():
     return jsonify(bot_status())
