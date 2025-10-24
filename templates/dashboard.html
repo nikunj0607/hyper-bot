@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="refresh" content="10">
+<title>Hyper Bot Dashboard</title>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        margin: 20px;
+    }
+    h2, h3 {
+        margin: 5px 0;
+    }
+    table {
+        border-collapse: collapse;
+        width: 100%;
+        margin-top: 15px;
+        font-size: 14px;
+    }
+    th, td {
+        border: 1px solid #ddd;
+        padding: 6px 8px;
+        text-align: center;
+    }
+    tr:nth-child(even) {
+        background: #f2f2f2;
+    }
+    th {
+        background: #222;
+        color: white;
+    }
+    .green {
+        background: #d4ffd4 !important;
+    }
+    .red {
+        background: #ffdddd !important;
+    }
+</style>
+</head>
+
+<body>
+
+<h2>Hyper Bot — Live Dashboard</h2>
+
+<!-- Equity Display -->
+<h3>Equity:
+    <span style="color:#008000;">${{ eq_usd }}</span> |
+    <span style="color:#0000cc;">₹{{ eq_inr }}</span>
+</h3>
+
+<!-- Table -->
+<table>
+    <tr>
+        <th>Time</th>
+        <th>Symbol</th>
+        <th>Side</th>
+        <th>Qty</th>
+        <th>Entry</th>
+        <th>Exit</th>
+        <th>PNL</th>
+        <th>Floating</th>
+        <th>Status</th>
+    </tr>
+
+    {% for t in trades %}
+    <tr class="{% if t.get('pnl',0) > 0 %}green{% elif t.get('pnl',0) < 0 %}red{% endif %}">
+        <td>{{ t.time }}</td>
+        <td>{{ t.symbol }}</td>
+        <td>{{ t.side }}</td>
+        <td>{{ t.qty }}</td>
+        <td>{{ t.entry }}</td>
+
+        <td>
+            {% if t.status == 'CLOSED' %}
+                {{ t.exit }}
+            {% else %}
+                -
+            {% endif %}
+        </td>
+
+        <td>
+            {% if t.status == 'CLOSED' %}
+                {{ t.pnl }}
+            {% else %}
+                -
+            {% endif %}
+        </td>
+
+        <td>{{ t.floating }}</td>
+        <td>{{ t.status }}</td>
+    </tr>
+    {% endfor %}
+
+</table>
+
+<br><br>
+
+<!-- Links -->
+<a href="/equity" target="_blank">📈 View Equity Curve</a> |
+<a href="/stats" target="_blank">📊 Strategy Stats</a>
+
+</body>
+</html>
