@@ -18,12 +18,15 @@ def now_ist():
 
 def now_utc():
     return datetime.datetime.now(datetime.UTC).isoformat(timespec="seconds")
-
-# ===== BUDGET =====
-RUPEES_BUDGET = 5000
-INR_PER_USD   = 83
+# ===== BUDGET (₹5,000 rupees) =====
+RUPEES_BUDGET = 5000               # your real risk money
+INR_PER_USD   = 83                 # conversion
 portfolio     = RUPEES_BUDGET / INR_PER_USD
 peak          = portfolio
+
+# daily drawdown protection (10%)
+DAILY_MAX_LOSS_USD = (RUPEES_BUDGET / INR_PER_USD) * 0.10
+
 
 # ===== MAIN SETTINGS =====
 ASSETS = ["BTCUSD", "ETHUSD", "SOLUSD", "BNBUSD"]
@@ -296,3 +299,4 @@ def eq():
 
 if __name__=="__main__":
     app.run(host="0.0.0.0",port=10000)
+
