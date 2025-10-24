@@ -291,8 +291,7 @@ def loop():
         time.sleep(REFRESH_SECONDS)
 
 
-threading.Thread(target=loop,daemon=True).start()
-threading.Thread(target=watchdog, daemon=True).start()
+
 def watchdog():
     while True:
         # if no heartbeat for 3 minutes → restart engine
@@ -300,6 +299,8 @@ def watchdog():
             print("[WATCHDOG] engine stalled → restarting...")
             threading.Thread(target=loop, daemon=True).start()
         time.sleep(60)
+threading.Thread(target=loop,daemon=True).start()
+threading.Thread(target=watchdog, daemon=True).start()
 
 # ===== UI =====
 app=Flask(__name__)
@@ -324,6 +325,7 @@ def eq():
 
 if __name__=="__main__":
     app.run(host="0.0.0.0",port=10000)
+
 
 
 
