@@ -267,18 +267,29 @@ def refresh(sym):
 
 
 def loop():
-    global portfolio
+    global portfolio, HEARTBEAT
+
+    # initial candle load
     for s in ASSETS:
-        symbols[s].symbol=s
-        symbols[s].candles=fetch_candles(s,TIMEFRAME,HISTORY_DAYS)
-        print("[load]",s,len(symbols[s].candles))
+        symbols[s].symbol = s
+        symbols[s].candles = fetch_candles(s, TIMEFRAME, HISTORY_DAYS)
+        print("[load]", s, len(symbols[s].candles))
+
     while True:
-        for s in ASSETS: refresh(symbols[s])
-        for s in ASSETS: step(symbols[s])
-            global HEARTBEAT
-            HEARTBEAT = time.time()
-            print(now_utc(),"eq=",portfolio)
-            time.sleep(REFRESH_SECONDS)
+        # refresh candles
+        for s in ASSETS:
+            refresh(symbols[s])
+
+        # strategy step
+        for s in ASSETS:
+            step(symbols[s])
+
+        # heartbeat update
+        HEARTBEAT = time.time()
+
+        print(now_utc(), "eq=", portfolio)
+        time.sleep(REFRESH_SECONDS)
+
 
 threading.Thread(target=loop,daemon=True).start()
 threading.Thread(target=watchdog, daemon=True).start()
@@ -313,5 +324,6 @@ def eq():
 
 if __name__=="__main__":
     app.run(host="0.0.0.0",port=10000)
+
 
 
