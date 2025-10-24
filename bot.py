@@ -10,6 +10,10 @@ from flask import Flask, render_template, send_file
 import matplotlib.pyplot as plt
 from io import BytesIO
 
+# ===== WATCHDOG SETTINGS =====
+HEARTBEAT = 0            # last alive timestamp
+WATCHDOG_TIMEOUT = 180   # 3 minutes without heartbeat = dead
+
 # ===== TIME =====
 def now_ist():
     return (datetime.datetime.now(datetime.timezone.utc)
@@ -271,10 +275,20 @@ def loop():
     while True:
         for s in ASSETS: refresh(symbols[s])
         for s in ASSETS: step(symbols[s])
-        print(now_utc(),"eq=",portfolio)
-        time.sleep(REFRESH_SECONDS)
+            global HEARTBEAT
+            HEARTBEAT = time.time()
+            print(now_utc(),"eq=",portfolio)
+            time.sleep(REFRESH_SECONDS)
 
 threading.Thread(target=loop,daemon=True).start()
+threading.Thread(target=watchdog, daemon=True).start()
+def watchdog():
+    while True:
+        # if no heartbeat for 3 minutes → restart engine
+        if HEARTBEAT != 0 and (time.time() - HEARTBEAT) > WATCHDOG_TIMEOUT:
+            print("[WATCHDOG] engine stalled → restarting...")
+            threading.Thread(target=loop, daemon=True).start()
+        time.sleep(60)
 
 # ===== UI =====
 app=Flask(__name__)
@@ -299,4 +313,5 @@ def eq():
 
 if __name__=="__main__":
     app.run(host="0.0.0.0",port=10000)
+
 
